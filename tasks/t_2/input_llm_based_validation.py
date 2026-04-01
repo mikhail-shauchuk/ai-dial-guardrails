@@ -63,13 +63,10 @@ class Validation(BaseModel):
     )
 
 def validate(user_input: str) -> Validation:
-    parser: PydanticOutputParser = None#TODO: Create `PydanticOutputParser` with `pydantic_object=Validation`
-    #TODO:
-    # Add messages:
-    #    - SystemMessagePromptTemplate.from_template(template=VALIDATION_PROMPT)
-    #    - HumanMessage(content=user_input)
+    parser: PydanticOutputParser = PydanticOutputParser(pydantic_object=Validation)
     messages = [
-
+        SystemMessagePromptTemplate.from_template(template=VALIDATION_PROMPT),
+        HumanMessage(content=user_input)
     ]
     prompt = ChatPromptTemplate.from_messages(messages=messages).partial(
         format_instructions=parser.get_format_instructions()
@@ -79,11 +76,9 @@ def validate(user_input: str) -> Validation:
 
 
 def main():
-    #TODO: add to `messages`:
-    #   - SystemMessage with SYSTEM_PROMPT as content
-    #   - HumanMessage with PROFILE as content
     messages: list[BaseMessage] = [
-
+        SystemMessage(content=SYSTEM_PROMPT),
+        HumanMessage(content=PROFILE)
     ]
 
     print("Type your question or 'exit' to quit.")
@@ -94,16 +89,14 @@ def main():
             print("Exiting the chat. Goodbye!")
             break
 
-        #TODO: Implement the complete validation and response logic
-        # 1. Call `validate` method with `user_input` and assign result to `validation` variable
-        # 2. Use an if-else statement to check `if validation.valid`:
-        #    If valid:
-        #         - Create HumanMessage with user_input as content and append to `messages`
-        #         - Invoke the `client` with `messages` to get AI response and assign it to the `ai_message` variable
-        #         - Add AI response to `messages`
-        #         - print(f"🤖Response:\n{ai_message.content}")
-        #    If invalid:
-        #         - print(f"🚫Blocked: {validation.description}")
+        validation = validate(user_input)
+        if validation.valid:
+            messages.append(HumanMessage(content=user_input))
+            ai_message = client.invoke(messages)
+            messages.append(ai_message)
+            print(f"🤖Response:\n{ai_message.content}")
+        else:
+            print(f"🚫Blocked: {validation.description}")
 
 
 main()

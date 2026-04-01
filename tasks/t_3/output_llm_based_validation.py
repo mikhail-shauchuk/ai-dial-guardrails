@@ -145,11 +145,9 @@ def validate(llm_output: str)  -> Validation:
 
 
 def main(soft_response: bool):
-    #TODO: add to `messages`:
-    #   - SystemMessage with SYSTEM_PROMPT as content
-    #   - HumanMessage with PROFILE as content
     messages: list[BaseMessage] = [
-
+        SystemMessage(content=SYSTEM_PROMPT),
+        HumanMessage(content=PROFILE)
     ]
 
     print("Type your question or 'exit' to quit.")
@@ -160,29 +158,28 @@ def main(soft_response: bool):
             print("Exiting the chat. Goodbye!")
             break
 
-        #TODO: Implement the complete validation and response logic
-        # 1. Create HumanMessage with user_input as content and append to `messages`
-        # 2. Invoke the `client` with `messages` to get AI response and assign it to the `ai_message` variable
-        # 3. Call `validate` method with `ai_message` and assign result to `validation` variable
-        # 4. Use an if-elif-else statement to check `if validation.valid`:
-        #    If valid:
-        #         - Add AI response to `messages`
-        #         - print(f"🤖Response:\n{ai_message.content}")
-        #    elif soft_response:
-        #         - Call `client.invoke` with such messages:
-        #               - SystemMessage with FILTER_SYSTEM_PROMPT content
-        #               - HumanMessage with `ai_message.content`
-        #         - assign response from LLM to `filtered_ai_message` and add to `messages`
-        #         - print(f"⚠️Validated response:\n{filtered_ai_message.content}")
-        #    else:
-        #         - add AIMessage with such content: "Blocked! Attempt to access PII!". This step is needed to preserve
-        #           message history. If won't be added history will look like: HumanMsg -> HumanMsg -> HumanMsg...
-        #         - print(f"🚫Response contains PII: {validation.description}")
+        messages.append(HumanMessage(content=user_input))
+        ai_message = client.invoke(messages)
+        validation = validate(ai_message.content)
+
+        if validation.valid:
+            messages.append(ai_message)
+            print(f"🤖Response:\n{ai_message.content}")
+        elif soft_response:
+            filtered_ai_message = client.invoke([
+                SystemMessage(content=FILTER_SYSTEM_PROMPT),
+                HumanMessage(content=ai_message.content)
+            ])
+            messages.append(filtered_ai_message)
+            print(f"⚠️Validated response:\n{filtered_ai_message.content}")
+        else:
+            messages.append(AIMessage(content="Blocked! Attempt to access PII!"))
+            print(f"🚫Response contains PII: {validation.description}")
 
 
 
 #TODO: Play with `soft_response` param
-main(soft_response=False)
+main(soft_response=True)
 
 #TODO:
 # ---------

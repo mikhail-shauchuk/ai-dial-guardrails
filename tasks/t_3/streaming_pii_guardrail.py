@@ -12,21 +12,21 @@ from tasks._constants import DIAL_URL, API_KEY
 class PresidioStreamingPIIGuardrail:
 
     def __init__(self, buffer_size: int =100, safety_margin: int = 20):
-        #TODO:
-        # 1. Create dict with language configurations: {"nlp_engine_name": "spacy","models": [{"lang_code": "en", "model_name": "en_core_web_sm"}]}
-        #    Read more about it here: https://microsoft.github.io/presidio/tutorial/05_languages/
-        # 2. Create NlpEngineProvider with created configurations
-        # 3. Create AnalyzerEngine, as `nlp_engine` crate engine by crated provider (will be used as obj var later)
-        # 4. Create AnonymizerEngine (will be used as obj var later)
-        # 5. Create buffer as empty string (here we will accumulate chunks content and process it, will be used as obj var late)
-        # 6. Create buffer_size as `buffer_size` (will be used as obj var late)
-        # 7. Create safety_margin as `safety_margin` (will be used as obj var late)
-        raise NotImplementedError
+        configuration = {
+            "nlp_engine_name": "spacy",
+            "models": [{"lang_code": "en", "model_name": "en_core_web_sm"}]
+        }
+        provider = NlpEngineProvider(nlp_configuration=configuration)
+        self.analyzer = AnalyzerEngine(nlp_engine=provider.create_engine())
+        self.anonymizer = AnonymizerEngine()
+        self.buffer = ""
+        self.buffer_size = buffer_size
+        self.safety_margin = safety_margin
 
     def process_chunk(self, chunk: str) -> str:
-        #TODO:
-        # 1. Check if chunk is present, if not then return chunk itself
-        # 2. Accumulate chunk to `buffer`
+        if not chunk:
+            return chunk
+        self.buffer += chunk
 
         if len(self.buffer) > self.buffer_size:
             safe_length = len(self.buffer) - self.safety_margin
@@ -37,25 +37,20 @@ class PresidioStreamingPIIGuardrail:
 
             text_to_process = self.buffer[:safe_length]
 
-            #TODO:
-            # 1. Get results with analyzer by method analyze, text is `text_to_process`, language is 'en'
-            # 2. Anonymize content, use anonymizer method anonymize with such params:
-            #       - text=text_to_process
-            #       - analyzer_results=results
-            # 3. Set `buffer` as `buffer[safe_length:]`
-            # 4. Return anonymized text
-            raise NotImplementedError
+            results = self.analyzer.analyze(text=text_to_process, language='en')
+            anonymized = self.anonymizer.anonymize(text=text_to_process, analyzer_results=results)
+            self.buffer = self.buffer[safe_length:]
+            return anonymized.text
 
         return ""
 
     def finalize(self) -> str:
-        #TODO:
-        # 1. Check if `buffer` is present, otherwise return empty string
-        # 2. Analyze `buffer`
-        # 3. Anonymize `buffer` with analyzed results
-        # 4. Set `buffer` as empty string
-        # 5. Return anonymized text
-        raise NotImplementedError
+        if not self.buffer:
+            return ""
+        results = self.analyzer.analyze(text=self.buffer, language='en')
+        anonymized = self.anonymizer.anonymize(text=self.buffer, analyzer_results=results)
+        self.buffer = ""
+        return anonymized.text
 
 
 class StreamingPIIGuardrail:
@@ -226,13 +221,18 @@ def main():
 
         full_response = ""
 
-        #TODO:
-        # 1. Iterate through `client.stream(messages)` chunks:
-        #    - For each chunk with content, call `guardrail.process_chunk(chunk.content)`
-        #    - If safe_chunk is returned, print it without newline and flush, add to `full_response`
-        # 2. After streaming, call `guardrail.finalize()` to process remaining buffer content
-        # 3. If final_chunk exists, print it and add to `full_response`
-        # 4. Add AIMessage with `full_response` content to messages
+        for chunk in client.stream(messages):
+            if chunk.content:
+                safe_chunk = guardrail.process_chunk(chunk.content)
+                if safe_chunk:
+                    print(safe_chunk, end="", flush=True)
+                    full_response += safe_chunk
+        final_chunk = guardrail.finalize()
+        if final_chunk:
+            print(final_chunk, end="", flush=True)
+            full_response += final_chunk
+        print()
+        messages.append(AIMessage(content=full_response))
 
 
 
